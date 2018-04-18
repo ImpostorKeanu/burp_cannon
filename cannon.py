@@ -10,18 +10,24 @@ from lib import *
 
 import argparse
 import requests
+import threading
 import re
+from time import sleep
+from xml.etree import ElementTree as ET
+from base64 import b64decode, b64encode
 
 import warnings
 warnings.filterwarnings("ignore")
 
-from xml.etree import ElementTree as ET
-from base64 import b64decode, b64encode
 
 ###
 
 def log(m):
     print(f'[+] {m}')
+
+def fire_cannon(item,kwargs):
+    requests.request(item.method, item.url, **kwargs)
+
 
 ap = argparse.ArgumentParser(description = "Send all requests contained in an"\
         " XML file exported from burp and send each through a user defined "\
@@ -71,13 +77,15 @@ ap.add_argument('--user-agent', '-ua',
         action = 'store',
         help = 'Specify a custom user agent string.')
 
-# TODO: Delete this junk
-fn = "/home/archangel/clients/microsoft/2018/testing/pod51500/all_items.xml"
-args = f"-ua innocuous1.0 -i {fn} -ph 127.0.0.1 -pp 8080 -c none".split()
+ap.add_argument('--max-threads', '-t',
+        dest = 'max_threads',
+        action = 'store',
+        type = int,
+        default = 5,
+        help = 'Maximum number of threads to use for execution, including the main thread')
 
 # TODO: Delete 'args' value here
-args = ap.parse_args(args)
-print(args)
+args = ap.parse_args()
 
 # handle proxies
 if args.proxy_host and args.proxy_port:
@@ -149,4 +157,13 @@ for item in doc.findall('//item'):
     kwargs['allow_redirects'] = False
 
     # send the request
-    r = requests.request(item.method,item.url,**kwargs)
+    # r = requests.request(item.method,item.url,**kwargs)
+    while threading.active_count() > args.max_threads:
+        sleep(.1)
+
+    threading.Thread(target=fire_cannon,args=(item,kwargs)).start()
+
+mt = thread.main_thread()
+for thread in threading.enumerate():
+    if thread != mt:
+        thread.join(timeout=10)
