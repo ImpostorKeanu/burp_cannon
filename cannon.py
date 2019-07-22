@@ -1,4 +1,4 @@
-#!/usr/bin/python3.6
+#!/usr/bin/env python3
 
 ### temporary imports
 
@@ -28,7 +28,6 @@ def log(m):
 def fire_cannon(item,kwargs):
     requests.request(item.method, item.url, **kwargs)
 
-
 ap = argparse.ArgumentParser(description = "Send all requests contained in an"\
         " XML file exported from burp and send each through a user defined "\
         " instance of burp. This aims to identify direct object reference"\
@@ -39,18 +38,14 @@ ap.add_argument('--input-file', '-i',
         action = 'store',
         help = 'XML items file exported from Burp')
 
-# TODO: Define custom logging
-# ap.add_argument('--log-file', '-l',
-#         dest = 'logfile',
-#         action = 'store',
-#         help = 'File to store log information.')
-
 ap.add_argument('--proxy-host', '-ph',
+        required = True,
         dest = 'proxy_host',
         action = 'store',
         help = 'IP of upstream proxy.')
 
 ap.add_argument('--proxy-port', '-pp',
+        required = True,
         dest = 'proxy_port',
         action = 'store',
         help = 'Port of upstream proxy.')
@@ -88,12 +83,9 @@ ap.add_argument('--max-threads', '-t',
 args = ap.parse_args()
 
 # handle proxies
-if args.proxy_host and args.proxy_port:
-    proxies = {}
-    for scheme in ['http','https']:
-        proxies[scheme] = f"{scheme}://{args.proxy_host}:{args.proxy_port}"
-else:
-    proxies = None
+proxies = {}
+for scheme in ['http','https']:
+    proxies[scheme] = f"{scheme}://{args.proxy_host}:{args.proxy_port}"
 
 # convenience is convenient
 verify_ssl = args.verify_ssl
@@ -101,9 +93,11 @@ verify_ssl = args.verify_ssl
 # TODO: Handle cookies from file
 
 # handle the input file
+log(f'Parsing input file: {args.infile}')
 doc = ET.parse(args.infile)
 
 # iterate over the items
+log(f'Sending items through proxy')
 i = -1
 for item in doc.findall('//item'):
 
@@ -111,8 +105,9 @@ for item in doc.findall('//item'):
 
     try:
         item = burp.Item(item)
-    except:
+    except Exception as e:
         log(f"Unhandled exception while parsing item (#{i})")
+        print(e)
         continue
 
     item.method = item.method.lower()
@@ -157,13 +152,14 @@ for item in doc.findall('//item'):
     kwargs['allow_redirects'] = False
 
     # send the request
-    # r = requests.request(item.method,item.url,**kwargs)
     while threading.active_count() > args.max_threads:
         sleep(.1)
 
     threading.Thread(target=fire_cannon,args=(item,kwargs)).start()
 
-mt = thread.main_thread()
+log('All requests sent; monitoring threads for completion')
+mt = threading.main_thread()
 for thread in threading.enumerate():
     if thread != mt:
         thread.join(timeout=10)
+log('Exiting')

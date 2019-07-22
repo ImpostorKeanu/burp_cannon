@@ -29,13 +29,12 @@ def charset_scan(headers,ct_re = content_type_re):
     headers = check_header_format(headers)
     key = header_key_scan(headers,ct_re)
 
+    out = 'utf-8'
     if key:
         if re.search(r'utf',headers[key],re.I):
             out = 'utf-8'
         elif re.search(r'ascii',headers[key],re.I):
             out = 'ascii'
-    else:
-        out = 'utf-8'
 
     return out
 
