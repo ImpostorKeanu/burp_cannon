@@ -67,6 +67,11 @@ ap.add_argument('--verify-ssl',
         default = False,
         help = 'Verify the server certificate if https is in use. Default: False')
 
+ap.add_argument('--fqdn-replacement', '-fr',
+
+        default = '',
+        help = 'Replace the FQDN with the supplied value. Useful when targeting a different host.')
+
 ap.add_argument('--user-agent', '-ua',
         dest = 'user_agent',
         action = 'store',
@@ -109,6 +114,13 @@ for item in doc.findall('//item'):
         log(f"Unhandled exception while parsing item (#{i})")
         print(e)
         continue
+
+    if args.fqdn_replacement != '':
+        match = re.match('^(?P<scheme>https?)://(?P<fqdn>.+?)/',item.url)
+        if match:
+            gd = match.groupdict()
+            item.url = f'{gd["scheme"]}://{args.fqdn_replacement}' + \
+                    item.url[match.span()[1]-1:]
 
     item.method = item.method.lower()
 
